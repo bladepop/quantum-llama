@@ -1,7 +1,7 @@
 ![image](https://github.com/user-attachments/assets/e65cdff3-def2-4b00-a81b-98c230d54a01)
 
 # Quantum Llama
-
+[![CI](https://github.com/bladepop/quantum-llama/actions/workflows/ci.yml/badge.svg)](https://github.com/bladepop/quantum-llama/actions/workflows/ci.yml)
 LLM operations assistant for automated code analysis, planning, and execution.
 
 ## Project Overview
