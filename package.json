@@ -1,0 +1,22 @@
+{
+  "name": "quantum-llama-ts-tools",
+  "version": "0.1.0",
+  "description": "TypeScript tools for Quantum Llama project",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint . --ext .ts",
+    "format": "prettier --write \"**/*.ts\""
+  },
+  "dependencies": {
+    "ts-morph": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.8.10",
+    "@typescript-eslint/eslint-plugin": "^6.9.1",
+    "@typescript-eslint/parser": "^6.9.1",
+    "eslint": "^8.52.0",
+    "prettier": "^3.0.3",
+    "typescript": "^5.2.2"
+  }
+} 
