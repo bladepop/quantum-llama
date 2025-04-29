@@ -44,6 +44,12 @@ node_modules/
 out/
 .pnpm-store/
 
+# Database
+*.db
+*.sqlite
+*.sqlite3
+data/crawl.db
+
 # Misc
 .DS_Store
 *.log
