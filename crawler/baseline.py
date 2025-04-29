@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from crawler import snapshot_db
+import anyio
 
 logger = logging.getLogger(__name__)
 
@@ -352,6 +353,44 @@ async def save_metrics_to_db(
         raise BaselineMetricsError(f"Failed to save metrics to database: {str(e)}")
 
 
+async def get_git_metadata(repo_path: Union[str, Path]) -> Dict[str, str]:
+    """Collect git commit and branch asynchronously.
+
+    Args:
+        repo_path: Path to the repository.
+
+    Returns:
+        Dictionary with 'git_commit' and 'git_branch' if found.
+    """
+    metadata = {}
+    try:
+        # Get commit hash
+        commit_proc = await anyio.run_process(
+            ["git", "rev-parse", "HEAD"], 
+            cwd=repo_path, 
+            check=False, 
+            stderr=subprocess.DEVNULL, 
+            stdout=subprocess.PIPE
+        )
+        if commit_proc.returncode == 0:
+            metadata["git_commit"] = commit_proc.stdout.decode().strip()
+        
+        # Get branch name
+        branch_proc = await anyio.run_process(
+            ["git", "branch", "--show-current"], 
+            cwd=repo_path, 
+            check=False, 
+            stderr=subprocess.DEVNULL, 
+            stdout=subprocess.PIPE
+        )
+        if branch_proc.returncode == 0:
+            metadata["git_branch"] = branch_proc.stdout.decode().strip()
+    except Exception as e:
+        logger.warning(f"Failed to collect git metadata asynchronously: {str(e)}")
+    
+    return metadata
+
+
 def main() -> int:
     """Run the baseline metrics collector from the command line.
 
@@ -387,34 +426,14 @@ def main() -> int:
         
         # Save to database unless --no-db is specified
         if not args.no_db:
-            # Collect git metadata if available
-            metadata = {}
-            try:
-                git_process = subprocess.run(
-                    ["git", "rev-parse", "HEAD"],
-                    cwd=args.repo_path,
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                )
-                if git_process.returncode == 0:
-                    metadata["git_commit"] = git_process.stdout.strip()
-                    
-                    # Try to get branch name
-                    branch_process = subprocess.run(
-                        ["git", "branch", "--show-current"],
-                        cwd=args.repo_path,
-                        capture_output=True,
-                        text=True,
-                        check=False,
-                    )
-                    if branch_process.returncode == 0:
-                        metadata["git_branch"] = branch_process.stdout.strip()
-            except Exception as e:
-                logger.warning(f"Failed to collect git metadata: {str(e)}")
+            # Define async task to run metadata collection and DB storage
+            async def save_with_metadata():
+                metadata = await get_git_metadata(args.repo_path)
+                run_id = await save_metrics_to_db(metrics, args.db, args.repo_path, metadata)
+                return run_id
             
-            # Use asyncio to run the database storage
-            run_id = asyncio.run(save_metrics_to_db(metrics, args.db, args.repo_path, metadata))
+            # Run the async task
+            run_id = asyncio.run(save_with_metadata())
             logger.info(f"Run ID: {run_id}")
         
         # Print a summary

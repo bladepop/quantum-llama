@@ -6,7 +6,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { Project, Node, SourceFile, SyntaxKind, TypeNode } from 'ts-morph';
+import * as ts_morph from 'ts-morph';
 
 /**
  * Represents a node in our simplified AST
@@ -34,7 +34,7 @@ function parseTypeScriptFile(filePath: string): ASTNode | { error: string } {
     }
 
     // Create a project and add the source file
-    const project = new Project();
+    const project = new ts_morph.Project();
     const sourceFile = project.addSourceFileAtPath(filePath);
 
     // Create the root node (the source file itself)
@@ -51,7 +51,7 @@ function parseTypeScriptFile(filePath: string): ASTNode | { error: string } {
  * @param sourceFile The ts-morph SourceFile
  * @returns The AST node
  */
-function createNodeFromSourceFile(sourceFile: SourceFile): ASTNode {
+function createNodeFromSourceFile(sourceFile: ts_morph.SourceFile): ASTNode {
   const fileNode: ASTNode = {
     nodeType: 'SourceFile',
     name: path.basename(sourceFile.getFilePath()),
@@ -73,7 +73,7 @@ function createNodeFromSourceFile(sourceFile: SourceFile): ASTNode {
  * @param node The ts-morph Node to process
  * @param parentASTNode The parent AST node
  */
-function processNode(node: Node, parentASTNode: ASTNode): void {
+function processNode(node: ts_morph.Node, parentASTNode: ASTNode): void {
   // Skip nodes we don't care about
   if (shouldSkipNode(node)) {
     return;
@@ -104,12 +104,12 @@ function processNode(node: Node, parentASTNode: ASTNode): void {
  * @param node The ts-morph Node to check
  * @returns True if the node should be skipped
  */
-function shouldSkipNode(node: Node): boolean {
+function shouldSkipNode(node: ts_morph.Node): boolean {
   // Skip syntax that doesn't add much value to the AST
   const skipKinds = [
-    SyntaxKind.EndOfFileToken,
-    SyntaxKind.SemicolonToken,
-    SyntaxKind.CommaToken,
+    ts_morph.SyntaxKind.EndOfFileToken,
+    ts_morph.SyntaxKind.SemicolonToken,
+    ts_morph.SyntaxKind.CommaToken,
   ];
 
   return skipKinds.includes(node.getKind());
@@ -120,7 +120,7 @@ function shouldSkipNode(node: Node): boolean {
  * @param node The ts-morph Node
  * @param astNode The simplified AST node
  */
-function addNodeSpecificDetails(node: Node, astNode: ASTNode): void {
+function addNodeSpecificDetails(node: ts_morph.Node, astNode: ASTNode): void {
   // Add name for named nodes
   const name = getNodeName(node);
   if (name) {
@@ -145,11 +145,11 @@ function addNodeSpecificDetails(node: Node, astNode: ASTNode): void {
  * @param node The ts-morph Node
  * @returns The name of the node, or undefined
  */
-function getNodeName(node: Node): string | undefined {
+function getNodeName(node: ts_morph.Node): string | undefined {
   // Handle different node types
-  if (Node.isNameableNode(node) && node.getName) {
+  if (ts_morph.Node.isNameableNode(node) && node.getName) {
     return node.getName();
-  } else if (Node.isIdentifier(node)) {
+  } else if (ts_morph.Node.isIdentifier(node)) {
     return node.getText();
   }
 
@@ -161,8 +161,8 @@ function getNodeName(node: Node): string | undefined {
  * @param node The ts-morph Node
  * @returns The documentation comment text, or undefined
  */
-function getNodeDocComment(node: Node): string | undefined {
-  if (Node.isJSDocableNode(node)) {
+function getNodeDocComment(node: ts_morph.Node): string | undefined {
+  if (ts_morph.Node.isJSDocableNode(node)) {
     const jsDocs = node.getJsDocs();
     if (jsDocs.length > 0) {
       // Combine all JSDoc comments and clean them up
@@ -182,11 +182,11 @@ function getNodeDocComment(node: Node): string | undefined {
  * @param node The ts-morph Node
  * @returns An object with node-specific attributes
  */
-function getNodeAttributes(node: Node): Record<string, any> {
+function getNodeAttributes(node: ts_morph.Node): Record<string, any> {
   const attributes: Record<string, any> = {};
 
   // Class declarations
-  if (Node.isClassDeclaration(node)) {
+  if (ts_morph.Node.isClassDeclaration(node)) {
     // Get heritage clauses (extends, implements)
     const extendsClause = node.getExtends();
     if (extendsClause) {
@@ -200,7 +200,7 @@ function getNodeAttributes(node: Node): Record<string, any> {
   }
   
   // Function, method or constructor declarations
-  if (Node.isFunctionDeclaration(node) || Node.isMethodDeclaration(node) || Node.isConstructorDeclaration(node)) {
+  if (ts_morph.Node.isFunctionDeclaration(node) || ts_morph.Node.isMethodDeclaration(node) || ts_morph.Node.isConstructorDeclaration(node)) {
     // Get parameters
     const parameters = node.getParameters();
     if (parameters.length > 0) {
@@ -226,7 +226,7 @@ function getNodeAttributes(node: Node): Record<string, any> {
     }
     
     // Get return type for function/method
-    if (Node.isSignaturedDeclaration(node)) {
+    if (ts_morph.Node.isSignaturedDeclaration(node)) {
       const returnType = node.getReturnType();
       if (returnType && !returnType.isVoid()) {
         attributes.returnType = returnType.getText();
@@ -235,7 +235,7 @@ function getNodeAttributes(node: Node): Record<string, any> {
   }
   
   // Interface declarations
-  if (Node.isInterfaceDeclaration(node)) {
+  if (ts_morph.Node.isInterfaceDeclaration(node)) {
     const extendsNodes = node.getExtends();
     if (extendsNodes.length > 0) {
       attributes.extends = extendsNodes.map(ext => ext.getText());
@@ -243,7 +243,7 @@ function getNodeAttributes(node: Node): Record<string, any> {
   }
   
   // Variable declarations
-  if (Node.isVariableDeclaration(node)) {
+  if (ts_morph.Node.isVariableDeclaration(node)) {
     const typeNode = node.getTypeNode();
     if (typeNode) {
       attributes.type = typeNode.getText();
@@ -255,17 +255,17 @@ function getNodeAttributes(node: Node): Record<string, any> {
       attributes.hasInitializer = true;
       
       // If it's a simple literal, include the value
-      if (Node.isStringLiteral(initializer) || 
-          Node.isNumericLiteral(initializer) ||
-          Node.isTrueLiteral(initializer) || 
-          Node.isFalseLiteral(initializer)) {
+      if (ts_morph.Node.isStringLiteral(initializer) || 
+          ts_morph.Node.isNumericLiteral(initializer) ||
+          ts_morph.Node.isTrueLiteral(initializer) || 
+          ts_morph.Node.isFalseLiteral(initializer)) {
         attributes.initializerValue = initializer.getText();
       }
     }
   }
   
   // Property declarations
-  if (Node.isPropertyDeclaration(node)) {
+  if (ts_morph.Node.isPropertyDeclaration(node)) {
     const typeNode = node.getTypeNode();
     if (typeNode) {
       attributes.type = typeNode.getText();
@@ -296,7 +296,7 @@ function getNodeAttributes(node: Node): Record<string, any> {
  * @param node The ts-morph Node
  * @param astNode The simplified AST node
  */
-function processNodeChildren(node: Node, astNode: ASTNode): void {
+function processNodeChildren(node: ts_morph.Node, astNode: ASTNode): void {
   // Process all children, depending on node type
   for (const child of node.getChildren()) {
     processNode(child, astNode);
@@ -304,109 +304,119 @@ function processNodeChildren(node: Node, astNode: ASTNode): void {
 }
 
 /**
- * Parse a directory of TypeScript files
- * @param dirPath Path to the directory
+ * Parse all TypeScript files in a directory
+ * @param dirPath Path to the directory to parse
  * @param extensions Array of file extensions to include (default: ['.ts', '.tsx'])
  * @returns Object mapping file paths to their ASTs
  */
-function parseDirectory(dirPath: string, extensions: string[] = ['.ts', '.tsx']): Record<string, ASTNode | { error: string }> {
+async function parseDirectory(dirPath: string, extensions: string[] = ['.ts', '.tsx']): Promise<Record<string, ASTNode | { error: string }>> {
   try {
     if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
       return { error: `Directory not found: ${dirPath}` };
     }
-
+    
     const results: Record<string, ASTNode | { error: string }> = {};
     
     // Create a project for all files
-    const project = new Project();
+    const project = new ts_morph.Project();
     
     // Find all TypeScript files recursively
-    const files = findFilesRecursively(dirPath, extensions);
-    
+    const files = await findFilesRecursively(dirPath, extensions);
+
     // Add all files to the project
     for (const file of files) {
       try {
-        const relativePath = path.relative(dirPath, file);
-        const sourceFile = project.addSourceFileAtPath(file);
-        const astRoot = createNodeFromSourceFile(sourceFile);
-        results[relativePath] = astRoot;
+        project.addSourceFileAtPath(file);
       } catch (error) {
-        results[path.relative(dirPath, file)] = { 
-          error: `Failed to parse: ${error instanceof Error ? error.message : String(error)}` 
-        };
+        results[file] = { error: `Failed to add file to project: ${error}` };
       }
     }
-
+    
+    // Parse each file
+    for (const sourceFile of project.getSourceFiles()) {
+      const filePath = sourceFile.getFilePath();
+      try {
+        results[filePath] = createNodeFromSourceFile(sourceFile);
+      } catch (error) {
+        results[filePath] = { error: `Failed to parse file: ${error}` };
+      }
+    }
+    
     return results;
   } catch (error) {
-    return { error: `Error processing directory: ${error instanceof Error ? error.message : String(error)}` };
+    return { error: `Failed to parse directory: ${error}` };
   }
 }
 
 /**
- * Find files recursively in a directory
- * @param dirPath Path to the directory
- * @param extensions Array of file extensions to include
- * @returns Array of file paths
+ * Find all files with specified extensions in a directory recursively
  */
-function findFilesRecursively(dirPath: string, extensions: string[]): string[] {
+async function findFilesRecursively(dirPath: string, extensions: string[]): Promise<string[]> {
   const files: string[] = [];
   
-  function traverse(currentPath: string) {
-    const entries = fs.readdirSync(currentPath, { withFileTypes: true });
-    
-    for (const entry of entries) {
-      const entryPath = path.join(currentPath, entry.name);
+  async function traverse(currentPath: string) {
+    try {
+      const entries = await fs.promises.readdir(currentPath, { withFileTypes: true });
       
-      if (entry.isDirectory()) {
-        traverse(entryPath);
-      } else if (entry.isFile() && extensions.includes(path.extname(entry.name))) {
-        files.push(entryPath);
+      for (const entry of entries) {
+        const entryPath = path.join(currentPath, entry.name);
+        
+        if (entry.isDirectory()) {
+          // Skip common directories that shouldn't be processed
+          if (entry.name !== 'node_modules' && entry.name !== '.git' && 
+              entry.name !== 'dist' && entry.name !== '.venv') {
+            await traverse(entryPath);
+          }
+        } else if (entry.isFile() && extensions.includes(path.extname(entry.name))) {
+          files.push(entryPath);
+        }
       }
+    } catch (error) {
+      console.error(`Error reading directory ${currentPath}: ${error}`);
     }
   }
   
-  traverse(dirPath);
+  await traverse(dirPath);
   return files;
 }
 
 /**
  * Main function to run the AST parser from the command line
  */
-function main() {
+async function main() {
   // Check for command-line arguments
   const args = process.argv.slice(2);
   if (args.length === 0) {
     console.error('Usage: node ast_ts.js <file_or_directory_path>');
     process.exit(1);
-  }
+  } 
 
   const targetPath = args[0];
   let result;
-
-  // Check if the path is a file or directory
+  
   try {
     const stats = fs.statSync(targetPath);
+    
     if (stats.isFile()) {
       result = parseTypeScriptFile(targetPath);
     } else if (stats.isDirectory()) {
-      result = parseDirectory(targetPath);
+      // Use await since parseDirectory is now async
+      result = await parseDirectory(targetPath); 
     } else {
       console.error(`Error: ${targetPath} is not a file or directory`);
       process.exit(1);
     }
+    
+    console.log(JSON.stringify(result, null, 2));
   } catch (error) {
-    console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(`Error: ${error}`);
     process.exit(1);
   }
-
-  // Output the result as JSON to stdout
-  console.log(JSON.stringify(result, null, 2));
 }
 
 // If running as a script (not imported as a module)
 if (require.main === module) {
-  main();
+  main().catch(err => console.error(err));
 }
 
 // Export the functions for use as a module

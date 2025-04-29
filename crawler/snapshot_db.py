@@ -216,56 +216,45 @@ async def get_run(db_path: Union[str, Path], run_id: str) -> Dict[str, Any]:
         conn = await aiosqlite.connect(str(db_path))
         conn.row_factory = aiosqlite.Row
         
-        # Get run data
+        # Get the run by ID
         cursor = await conn.execute(
-            "SELECT * FROM runs WHERE id = ?", 
+            """
+            SELECT * FROM runs WHERE id = ?
+            """,
             (run_id,)
         )
-        run_data = await cursor.fetchone()
-        
-        if not run_data:
-            raise SnapshotDBError(f"Run with ID {run_id} not found")
-        
-        # Convert row to dict
-        run_dict = dict(run_data)
-        
-        # Convert SQLite integers to booleans
-        run_dict["overall_success"] = bool(run_dict["overall_success"])
-        
-        # Parse metadata JSON if it exists
-        if run_dict["metadata"]:
-            run_dict["metadata"] = json.loads(run_dict["metadata"])
-        
-        # Get package data
-        cursor = await conn.execute(
-            "SELECT * FROM packages WHERE run_id = ?",
-            (run_id,)
-        )
-        packages = [dict(row) for row in await cursor.fetchall()]
+        run = await cursor.fetchone()
+        if not run:
+            await conn.close()
+            return None
+            
+        # Convert to dict
+        run_dict = dict(run)
         
         # Get file data
         cursor = await conn.execute(
-            "SELECT * FROM files WHERE run_id = ?",
+            """
+            SELECT * FROM files WHERE run_id = ?
+            """,
             (run_id,)
         )
-        files = [dict(row) for row in await cursor.fetchall()]
+        files = await cursor.fetchall()
+        run_dict["files"] = [dict(file) for file in files]
         
-        # Organize files by package
-        packages_with_files = {}
-        for package in packages:
-            package_name = package["package_name"]
-            package_files = [f for f in files if f["package_name"] == package_name]
-            packages_with_files[package_name] = {
-                "line_coverage_percent": package["line_coverage_percent"],
-                "files": package_files
-            }
-        
-        run_dict["packages"] = packages_with_files
+        # Get package data
+        cursor = await conn.execute(
+            """
+            SELECT * FROM packages WHERE run_id = ?
+            """,
+            (run_id,)
+        )
+        packages = await cursor.fetchall()
+        run_dict["packages"] = [dict(package) for package in packages]
         
         await conn.close()
         return run_dict
     except Exception as e:
-        if 'conn' in locals():
+        if 'conn' in locals() and conn:
             await conn.close()
         raise SnapshotDBError(f"Failed to retrieve run: {str(e)}")
 
@@ -292,16 +281,18 @@ async def list_runs(
         conn = await aiosqlite.connect(str(db_path))
         conn.row_factory = aiosqlite.Row
         
-        cursor = await conn.execute(
-            """
+        query = """
             SELECT id, repo_path, timestamp, overall_success, 
                    tests_total, tests_passed, success_rate, line_coverage_percent
             FROM runs
             ORDER BY timestamp DESC
-            LIMIT ? OFFSET ?
-            """,
-            (limit, offset)
-        )
+        """
+        
+        if limit:
+            query += " LIMIT ? OFFSET ?"
+            cursor = await conn.execute(query, (limit, offset))
+        else:
+            cursor = await conn.execute(query)
         
         runs = [dict(row) for row in await cursor.fetchall()]
         
@@ -312,7 +303,7 @@ async def list_runs(
         await conn.close()
         return runs
     except Exception as e:
-        if 'conn' in locals():
+        if 'conn' in locals() and conn:
             await conn.close()
         raise SnapshotDBError(f"Failed to list runs: {str(e)}")
 
@@ -332,12 +323,17 @@ async def get_runs_count(db_path: Union[str, Path]) -> int:
     try:
         conn = await aiosqlite.connect(str(db_path))
         
-        cursor = await conn.execute("SELECT COUNT(*) FROM runs")
-        count = (await cursor.fetchone())[0]
+        query = """
+            SELECT COUNT(*) as count FROM runs
+        """
+        
+        cursor = await conn.execute(query)
+        row = await cursor.fetchone()
+        count = row[0] if row else 0
         
         await conn.close()
         return count
     except Exception as e:
-        if 'conn' in locals():
+        if 'conn' in locals() and conn:
             await conn.close()
         raise SnapshotDBError(f"Failed to count runs: {str(e)}") 
