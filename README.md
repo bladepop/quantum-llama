@@ -1,3 +1,5 @@
+![image](https://github.com/user-attachments/assets/e65cdff3-def2-4b00-a81b-98c230d54a01)
+
 # Quantum Llama
 
 LLM operations assistant for automated code analysis, planning, and execution.
