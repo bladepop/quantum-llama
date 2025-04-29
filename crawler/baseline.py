@@ -1,6 +1,7 @@
 """Baseline metrics collector for Python projects."""
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -9,6 +10,8 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
+
+from crawler import snapshot_db
 
 logger = logging.getLogger(__name__)
 
@@ -321,6 +324,34 @@ def save_metrics_to_json(metrics: Dict[str, Any], output_path: Union[str, Path])
     logger.info(f"Metrics saved to {output_path}")
 
 
+async def save_metrics_to_db(
+    metrics: Dict[str, Any], 
+    db_path: Union[str, Path], 
+    repo_path: Union[str, Path],
+    metadata: Optional[Dict[str, Any]] = None
+) -> str:
+    """Save metrics to SQLite database.
+
+    Args:
+        metrics: The metrics to save
+        db_path: Path to the SQLite database file
+        repo_path: Path to the repository
+        metadata: Optional additional metadata as a dictionary
+
+    Returns:
+        The ID of the run that was stored
+
+    Raises:
+        BaselineMetricsError: If there's an error saving to the database
+    """
+    try:
+        run_id = await snapshot_db.store_snapshot(db_path, metrics, repo_path, metadata)
+        logger.info(f"Metrics saved to database {db_path} with run ID {run_id}")
+        return run_id
+    except snapshot_db.SnapshotDBError as e:
+        raise BaselineMetricsError(f"Failed to save metrics to database: {str(e)}")
+
+
 def main() -> int:
     """Run the baseline metrics collector from the command line.
 
@@ -333,8 +364,11 @@ def main() -> int:
     parser.add_argument("repo_path", help="Path to the repository")
     parser.add_argument("-o", "--output", default="baseline_metrics.json", 
                         help="Path to the output JSON file")
+    parser.add_argument("-d", "--db", default="data/crawl.db",
+                        help="Path to the SQLite database file")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
     parser.add_argument("--pytest-args", nargs="*", help="Additional arguments to pass to pytest")
+    parser.add_argument("--no-db", action="store_true", help="Skip database storage")
     
     args = parser.parse_args()
     
@@ -347,7 +381,41 @@ def main() -> int:
     
     try:
         metrics = collect_baseline_metrics(args.repo_path, args.pytest_args)
+        
+        # Save to JSON file
         save_metrics_to_json(metrics, args.output)
+        
+        # Save to database unless --no-db is specified
+        if not args.no_db:
+            # Collect git metadata if available
+            metadata = {}
+            try:
+                git_process = subprocess.run(
+                    ["git", "rev-parse", "HEAD"],
+                    cwd=args.repo_path,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if git_process.returncode == 0:
+                    metadata["git_commit"] = git_process.stdout.strip()
+                    
+                    # Try to get branch name
+                    branch_process = subprocess.run(
+                        ["git", "branch", "--show-current"],
+                        cwd=args.repo_path,
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    if branch_process.returncode == 0:
+                        metadata["git_branch"] = branch_process.stdout.strip()
+            except Exception as e:
+                logger.warning(f"Failed to collect git metadata: {str(e)}")
+            
+            # Use asyncio to run the database storage
+            run_id = asyncio.run(save_metrics_to_db(metrics, args.db, args.repo_path, metadata))
+            logger.info(f"Run ID: {run_id}")
         
         # Print a summary
         print(f"\nTests: {metrics['tests']['tests_passed']}/{metrics['tests']['tests_total']} passed "
