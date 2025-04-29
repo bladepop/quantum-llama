@@ -1,0 +1,134 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+// ──────────────────────────────────────────────────────────────
+//  Quantum Llama  –  Cursor AI Project Rules v0.1  (April 30 2025)
+//  Repo: llm-ops-assistant  (a.k.a. “Quantum Llama”)
+// ──────────────────────────────────────────────────────────────
+//  Purpose
+//  Provide Cursor’s AI with the context, conventions, and guard‑rails
+//  needed to safely generate, refactor, and augment code in this repo.
+//
+//  TL;DR for the AI
+//  1. Follow the architecture map (crawler → planner → engine → verification → api/web).
+//  2. Use Black + Ruff for Python, Prettier + ESLint for TypeScript.
+//  3. Respect module boundaries (Python packages) & layer contracts.
+//  4. NEVER leak secrets; scan & redact with <SECRET_HASH> tokens.
+//  5. Output *only* the diff(s) inside ``` fences; no chatty prose.
+//
+// ──────────────────────────────────────────────────────────────
+//  Global Coding Standards
+// ──────────────────────────────────────────────────────────────
+//  * Python 3.11+, strict type hints, Pydantic v2 models.
+//  * Format with Black (line‑length = 88) and Ruff (select = ALL).
+//  * Conventional Commits (feat, fix, chore, refactor, ci, docs).
+//  * Structured logging via `core.logging` (JSON, trace_id field).
+//  * Environment config via 12‑factor `.env` + `pydantic.Settings`.
+//  * Tests with pytest + pytest‑cov; target ≥ 90 % package coverage.
+//
+// ──────────────────────────────────────────────────────────────
+//  Project Layout
+// ──────────────────────────────────────────────────────────────
+//  crawler/           → repo discovery, cloning, AST snapshots
+//  planner/           → LLM analysis, PlanItem generation
+//  engine/            → code patching, git & PR automation
+//  verification/      → CI result parsing, policy enforcement
+//  api/               → FastAPI service exposing REST/GraphQL
+//  web/               → Next.js 14 dashboard (TypeScript + Tailwind)
+//  security/          → secret scan, redaction, token rotation
+//  cli/               → Click CLI entry‑points (`ql plan`, `ql exec`)
+//  docs/              → ADRs, runbooks, incident playbooks
+//  tests/             → unit/, integration/, golden‑set/
+//
+//  When generating code, place files in the correct directory.
+//  Do NOT create ad‑hoc “utils” folders; prefer cohesive packages.
+//
+// ──────────────────────────────────────────────────────────────
+//  Python‑Specific Rules
+// ──────────────────────────────────────────────────────────────
+//  * Use `async def` + `anyio` for IO‑bound code; keep CPU‑bound
+//    work in Celery tasks.
+//  * Always include `from __future__ import annotations`.
+//  * Data models: prefer `@pydantic.dataclasses.dataclass` over
+//    bare dataclasses for validation.
+//  * No `print`; use `logger.*` with extra={"run_id": …}.
+//  * Sentinel constants live in `core/constants.py`.
+//
+// ──────────────────────────────────────────────────────────────
+//  TypeScript / React Rules (web/)
+// ──────────────────────────────────────────────────────────────
+//  * Next.js 14 / app‑router; use Server Components by default.
+//  * UI toolkit: shadcn/ui; icons: lucide‑react.
+//  * State fetch/cache with SWR (`useSWR`) or React Query 5.
+//  * Styling: TailwindCSS; prefer `@apply` over long class strings
+//    in complex components.
+//  * All components are typed with `React.FC<Props>` + `Props` types.
+//  * Directory conventions: `web/(components|app|lib|hooks|types)`.
+//
+// ──────────────────────────────────────────────────────────────
+//  LLM‑Agent Interaction Contract
+// ──────────────────────────────────────────────────────────────
+//  When responding to a task prompt:
+//  1. Think silently, then RETURN ONLY code diff(s) in triple backticks.
+//  2. Include *exact* file paths relative to repo root.
+//  3. Do not modify files outside the listed deliverables.
+//  4. Run `black`/`ruff --fix` (Python) or `prettier --write` (TS)
+//     before producing the diff.
+//  5. Ensure `pytest -q` passes and coverage Δ ≥ 0 unless explicitly
+//     told the task is allowed to drop coverage.
+//  6. If a secret or credential string is detected, replace with
+//     `<SECRET_HASH_###>` and note `# redacted` in a comment.
+//  7. Respect `# NO_LLM` directive—never include such files in prompts
+//     or edits.
+//
+// ──────────────────────────────────────────────────────────────
+//  Commit Message Template (auto‑commit)
+// ──────────────────────────────────────────────────────────────
+//  <type>(<scope>): <summary>
+//
+//  * Example: `feat(engine): add redis prompt cache with 30‑day TTL`
+//  * Maximum 72‑char summary; detailed body optional.
+//
+// ──────────────────────────────────────────────────────────────
+//  Documentation Rules
+// ──────────────────────────────────────────────────────────────
+//  * Update or create docstrings 💯 of the time.
+//  * Public functions/classes: Google‑style docstrings with Args,
+//    Returns, Raises.
+//  * ADRs live in `docs/adr‑YYYYMMDD‑<slug>.md` using template.
+//  * Update `README.md` if adding new CLI commands or env vars.
+//
+// ──────────────────────────────────────────────────────────────
+//  Prohibited Patterns (AI must refuse or change approach)
+// ──────────────────────────────────────────────────────────────
+//  * Hard‑coded credentials or tokens.
+//  * Usage of `print` for logging.
+//  * Global mutable state outside `core/state.py`.
+//  * Commits without passing CI.
+//  * Introducing new runtime dependencies without updating
+//    `pyproject.toml` or `package.json` + `pnpm-lock.yaml`.
+//
+// ──────────────────────────────────────────────────────────────
+//  Helpful Context Snippets
+// ──────────────────────────────────────────────────────────────
+//  \u26A1  Example PlanItem JSON schema:
+//  {
+//    "id": "UUID",
+//    "file_path": "crawler/clone.py",
+//    "action": "MODIFY",
+//    "reason": "retry logic with tenacity",
+//    "confidence": 0.92
+//  }
+//
+//  \uD83D\uDEE0  Typical FastAPI route pattern (api/main.py):
+//  ```python
+//  @router.get("/runs", response_model=list[RunSchema])
+//  async def list_runs(limit: int = 50):
+//      return await run_repo.list(limit=limit)
+//  ```
+//
+// ──────────────────────────────────────────────────────────────
+//  EOF – Happy patching, Quantum Llama!
+
