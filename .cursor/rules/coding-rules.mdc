@@ -229,7 +229,7 @@ ON_TASK_ERROR {
 //     }
 //   }
 // }
-
+// DO NOT USE get_board_items_by_name for monday api, use the query below
 // Get Board Items:
 // query {
 //   boards(ids: [9034734333]) {
