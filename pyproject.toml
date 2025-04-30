@@ -9,8 +9,12 @@ packages = [
     { include = "planner" },
     { include = "engine" },
     { include = "verification" },
+    { include = "api" },
+    { include = "security" },
+    { include = "cli" },
     { include = "models" },
     { include = "db" },
+    { include = "llm" },
 ]
 
 [tool.poetry.dependencies]
