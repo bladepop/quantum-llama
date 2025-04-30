@@ -41,23 +41,24 @@ jobs:
 
       - name: Install dependencies
         run: |
-          poetry install --with dev
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
 
       - name: Download baseline coverage
         if: github.event_name == 'pull_request'
         run: |
           git checkout ${{ github.base_ref }}
-          poetry run pytest --cov=quantum_llama --cov-report=json:baseline-coverage.json
+          pytest --cov=quantum_llama --cov-report=json:baseline-coverage.json
           git checkout ${{ github.sha }}
 
       - name: Run tests with coverage
         run: |
-          poetry run pytest --cov=quantum_llama --cov-report=xml --cov-report=json:current-coverage.json
+          pytest --cov=quantum_llama --cov-report=xml --cov-report=json:current-coverage.json
 
       - name: Check coverage diff
         if: github.event_name == 'pull_request'
         run: |
-          poetry run python -m verification.coverage_check current-coverage.json baseline-coverage.json
+          python -m verification.coverage_check current-coverage.json baseline-coverage.json
 
       - name: Upload coverage reports
         uses: actions/upload-artifact@v4

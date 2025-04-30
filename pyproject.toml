@@ -5,13 +5,11 @@ description = "LLM-powered code operations assistant"
 authors = ["Quantum Llama Team"]
 readme = "README.md"
 packages = [
-    { include = "quantum_llama" },
     { include = "crawler" },
     { include = "planner" },
     { include = "engine" },
     { include = "verification" },
     { include = "models" },
-    { include = "api" }
 ]
 
 [tool.poetry.dependencies]
