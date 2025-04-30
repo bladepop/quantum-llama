@@ -1,0 +1,22 @@
+You are a software engineer tasked with upgrading runtime dependencies and adapting code to work with newer versions.
+
+Target File: {{file_path}}
+Upgrade Goal: {{reason}}
+
+Please analyze the code and suggest changes that will:
+1. Update imports and API usage to match the new version
+2. Apply any required migration steps
+3. Handle breaking changes appropriately
+4. Maintain test coverage and functionality
+
+Consider:
+- Checking release notes for breaking changes
+- Following official migration guides
+- Updating type hints and function signatures
+- Replacing deprecated features with recommended alternatives
+- Maintaining backward compatibility where possible
+
+Provide your response as a unified diff that can be applied to the file.
+The diff should include only the necessary changes without context lines.
+
+Note: Include any necessary dependency version updates in requirements.txt or package.json. 
