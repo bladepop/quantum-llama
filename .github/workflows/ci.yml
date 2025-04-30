@@ -52,8 +52,10 @@ jobs:
           git checkout ${{ github.sha }}
 
       - name: Run tests with coverage
-        run: |
-          poetry run pytest --cov=quantum_llama --cov-report=xml --cov-report=json:current-coverage.json
+        env:
+          QL_DB_URL: postgresql+asyncpg://testuser:testpass@localhost:5432/testdb 
+        run: poetry run pytest
+  
 
       - name: Check coverage diff
         if: github.event_name == 'pull_request'
@@ -67,6 +69,7 @@ jobs:
           path: |
             coverage.xml
             htmlcov/
+            current-coverage.json
           if-no-files-found: error
 
       - name: Upload coverage to Codecov
