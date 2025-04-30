@@ -54,8 +54,8 @@ jobs:
       - name: Run tests with coverage
         env:
           QL_DB_URL: postgresql+asyncpg://testuser:testpass@localhost:5432/testdb 
+          PYTHONPATH: ${{ github.workspace }}
         run: poetry run pytest
-  
 
       - name: Check coverage diff
         if: github.event_name == 'pull_request'
