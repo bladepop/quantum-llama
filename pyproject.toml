@@ -10,7 +10,6 @@ packages = [
     { include = "engine" },
     { include = "verification" },
     { include = "api" },
-    { include = "security" },
     { include = "cli" },
     { include = "models" },
     { include = "db" },
