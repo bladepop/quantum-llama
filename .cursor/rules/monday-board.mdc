@@ -12,7 +12,8 @@ alwaysApply: false
 
 // Board Structure
 // ──────────────────────────────────────────────────────────────
-// Board ID: 9037981225 (PG Day 8th May 2025)
+// Project Board: https://monday.monday.com/boards/9034734333
+// Board ID: 9034734333
 // Columns:
 // - name (type: name)
 // - status (type: status, id: status)
