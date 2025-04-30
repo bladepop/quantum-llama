@@ -33,8 +33,8 @@ def parse_verification_results(
     Returns:
         Dictionary containing verification metrics:
         {
-            "passed_before": bool,  # True if all non-skipped tests passed
-            "passed_after": bool,   # True if all non-skipped tests passed
+            "passed_before": bool,  # True if no failures or errors
+            "passed_after": bool,   # True if no failures or errors
             "tests_before": {
                 "total": int,
                 "passed": int,
@@ -92,13 +92,9 @@ def parse_verification_results(
             if test_id not in before_cases and status == "failed"
         ]
         
-        # Calculate if all non-skipped tests passed
-        before_non_skipped = before_results["tests_total"] - before_results["tests_skipped"]
-        after_non_skipped = after_results["tests_total"] - after_results["tests_skipped"]
-        
         return {
-            "passed_before": before_results["tests_passed"] == before_non_skipped,
-            "passed_after": after_results["tests_passed"] == after_non_skipped,
+            "passed_before": before_results["tests_failures"] == 0 and before_results["tests_errors"] == 0,
+            "passed_after": after_results["tests_failures"] == 0 and after_results["tests_errors"] == 0,
             "tests_before": {
                 "total": before_results["tests_total"],
                 "passed": before_results["tests_passed"],

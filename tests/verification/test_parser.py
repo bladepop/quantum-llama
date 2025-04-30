@@ -59,17 +59,11 @@ def after_junit_xml(tmp_path):
 
 def test_parse_verification_results(before_junit_xml, after_junit_xml):
     """Test parsing verification results from before/after JUnit XML files."""
-    print("\nBefore XML:")
-    print(before_junit_xml.read_text())
-    print("\nAfter XML:")
-    print(after_junit_xml.read_text())
-    
     results = parse_verification_results(before_junit_xml, after_junit_xml)
-    print("\nResults:", results)
     
     # Check overall pass/fail status
-    assert results["passed_before"] is False
-    assert results["passed_after"] is False
+    assert results["passed_before"] is False  # 1 passed out of 3 non-skipped
+    assert results["passed_after"] is False   # 1 passed out of 4 non-skipped
     
     # Check before test counts
     assert results["tests_before"]["total"] == 4
