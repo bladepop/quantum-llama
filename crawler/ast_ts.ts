@@ -147,7 +147,7 @@ function addNodeSpecificDetails(node: ts_morph.Node, astNode: ASTNode): void {
  */
 function getNodeName(node: ts_morph.Node): string | undefined {
   // Handle different node types
-  if (ts_morph.Node.isNameableNode(node) && node.getName) {
+  if (ts_morph.Node.isNameable(node) && node.getName) {
     return node.getName();
   } else if (ts_morph.Node.isIdentifier(node)) {
     return node.getText();
@@ -162,7 +162,7 @@ function getNodeName(node: ts_morph.Node): string | undefined {
  * @returns The documentation comment text, or undefined
  */
 function getNodeDocComment(node: ts_morph.Node): string | undefined {
-  if (ts_morph.Node.isJSDocableNode(node)) {
+  if (ts_morph.Node.isJSDocable(node)) {
     const jsDocs = node.getJsDocs();
     if (jsDocs.length > 0) {
       // Combine all JSDoc comments and clean them up
@@ -312,7 +312,7 @@ function processNodeChildren(node: ts_morph.Node, astNode: ASTNode): void {
 async function parseDirectory(dirPath: string, extensions: string[] = ['.ts', '.tsx']): Promise<Record<string, ASTNode | { error: string }>> {
   try {
     if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
-      return { error: `Directory not found: ${dirPath}` };
+      return { [dirPath]: { error: `Directory not found: ${dirPath}` } };
     }
     
     const results: Record<string, ASTNode | { error: string }> = {};
@@ -344,7 +344,7 @@ async function parseDirectory(dirPath: string, extensions: string[] = ['.ts', '.
     
     return results;
   } catch (error) {
-    return { error: `Failed to parse directory: ${error}` };
+    return { [dirPath]: { error: `Failed to parse directory: ${error}` } };
   }
 }
 
