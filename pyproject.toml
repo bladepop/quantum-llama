@@ -18,7 +18,7 @@ python = "^3.11"
 pydantic = "^2.6.3"
 pydantic-settings = "^2.2.1"
 fastapi = "^0.110.0"
-anyio = "^4.3.0"
+anyio = ">=3.7.1,<4.0.0"
 sqlalchemy = {extras = ["asyncio"], version = "^2.0.28"}
 aiosqlite = "^0.20.0"
 pygit2 = "^1.14.1"
