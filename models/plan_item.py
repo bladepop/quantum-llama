@@ -17,10 +17,12 @@ class PlanItem:
         action: Type of modification to perform
         reason: Description of why this modification is needed
         confidence: Confidence score between 0 and 1 for this modification
+        run_id: ID of the run this plan item belongs to
     """
 
     id: UUID
     file_path: str
     action: Literal["MODIFY", "CREATE", "DELETE", "RENAME", "MOVE"]
     reason: str
-    confidence: float  # Between 0 and 1 
+    confidence: float  # Between 0 and 1
+    run_id: UUID | None = None 
