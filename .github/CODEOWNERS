@@ -1,0 +1,31 @@
+# Default owners for everything in the repo
+* @quantum-llama/maintainers
+
+# Crawler module
+/crawler/ @quantum-llama/crawler-team
+
+# Planner module
+/planner/ @quantum-llama/planner-team
+
+# Engine module
+/engine/ @quantum-llama/engine-team
+
+# Verification module
+/verification/ @quantum-llama/verification-team
+
+# API and Web modules
+/api/ @quantum-llama/api-team
+/web/ @quantum-llama/web-team
+
+# Security module
+/security/ @quantum-llama/security-team
+
+# Models and core functionality
+/models/ @quantum-llama/core-team
+/core/ @quantum-llama/core-team
+
+# Documentation
+/docs/ @quantum-llama/docs-team
+
+# Tests
+/tests/ @quantum-llama/qa-team 

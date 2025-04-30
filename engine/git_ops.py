@@ -23,6 +23,7 @@ class PullRequest(BaseModel):
     body: str = Field(description="PR description")
     head: str = Field(description="Head branch name")
     base: str = Field(description="Base branch name")
+    reviewers: List[str] = Field(default_factory=list, description="Assigned reviewers")
 
 
 class GitOps:
@@ -153,6 +154,127 @@ class GitOps:
         except pygit2.GitError as e:
             raise ValueError(f"Failed to create commit: {e}") from e
 
+    def push_branch(self, branch_name: str, remote_name: str = "origin") -> None:
+        """Push a branch to the remote repository.
+        
+        Args:
+            branch_name: Name of the branch to push
+            remote_name: Name of the remote to push to (default: origin)
+            
+        Raises:
+            ValueError: If push fails or branch doesn't exist
+        """
+        try:
+            # Get the remote
+            remote = self.repo.remotes[remote_name]
+            if not remote:
+                raise ValueError(f"Remote {remote_name} not found")
+
+            # Push using git command (pygit2 push requires more complex auth setup)
+            import subprocess
+            result = subprocess.run(
+                ["git", "push", remote_name, branch_name],
+                cwd=self.repo_path,
+                capture_output=True,
+                text=True
+            )
+            
+            if result.returncode != 0:
+                raise ValueError(f"Push failed: {result.stderr}")
+            
+            logger.info(f"Pushed branch {branch_name} to {remote_name}")
+
+        except (KeyError, pygit2.GitError, subprocess.CalledProcessError) as e:
+            raise ValueError(f"Failed to push branch: {e}")
+
+    def get_codeowners_for_path(self, file_path: str) -> List[str]:
+        """Get reviewers from CODEOWNERS file for a given path.
+        
+        Args:
+            file_path: Path to the file to get reviewers for
+            
+        Returns:
+            List of GitHub usernames/teams that should review changes to this path
+        """
+        codeowners_path = self.repo_path / ".github" / "CODEOWNERS"
+        if not codeowners_path.exists():
+            logger.warning("CODEOWNERS file not found")
+            return []
+
+        reviewers = []
+        file_path = str(file_path)
+
+        try:
+            with open(codeowners_path) as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+
+                    # Split into pattern and owners
+                    parts = line.split()
+                    if len(parts) < 2:
+                        continue
+
+                    pattern = parts[0]
+                    owners = parts[1:]
+
+                    # Convert pattern to regex
+                    import fnmatch
+                    if fnmatch.fnmatch(file_path, pattern):
+                        reviewers.extend(owners)
+
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_reviewers = []
+            for reviewer in reviewers:
+                if reviewer not in seen:
+                    seen.add(reviewer)
+                    unique_reviewers.append(reviewer)
+
+            return unique_reviewers
+
+        except Exception as e:
+            logger.error(f"Error reading CODEOWNERS: {e}")
+            return []
+
+    def generate_pr_checklist(self, files_changed: List[str]) -> str:
+        """Generate a markdown checklist for the PR description.
+        
+        Args:
+            files_changed: List of files that were changed
+            
+        Returns:
+            Markdown formatted checklist
+        """
+        checklist = [
+            "## Changes",
+            "This PR includes the following changes:",
+            ""
+        ]
+        
+        for file in sorted(files_changed):
+            checklist.append(f"- [ ] {file}")
+        
+        checklist.extend([
+            "",
+            "## Checklist",
+            "- [ ] Tests added/updated and passing",
+            "- [ ] Documentation updated",
+            "- [ ] Code follows project conventions",
+            "- [ ] Commit messages follow conventional commits format",
+            "- [ ] CI checks passing",
+            "",
+            "## Reviewers",
+            "Please review the changes according to:",
+            "- Code quality and style",
+            "- Test coverage",
+            "- Documentation completeness",
+            "- Security implications"
+        ])
+        
+        return "\n".join(checklist)
+
     async def create_pull_request(
         self,
         title: str,
@@ -160,6 +282,7 @@ class GitOps:
         head_branch: str,
         base_branch: str = "main",
         reviewers: Optional[List[str]] = None,
+        files_changed: Optional[List[str]] = None,
     ) -> PullRequest:
         """Create a GitHub pull request.
         
@@ -169,6 +292,7 @@ class GitOps:
             head_branch: Source branch name
             base_branch: Target branch name (default: main)
             reviewers: Optional list of GitHub usernames to request review from
+            files_changed: Optional list of changed files to include in checklist
         
         Returns:
             PullRequest object with PR details
@@ -185,6 +309,10 @@ class GitOps:
             parsed_url = urlparse(remote_url)
             path_parts = parsed_url.path.strip("/").split("/")
             owner, repo = path_parts[0], path_parts[1].replace(".git", "")
+
+            # Add checklist to PR body if files were changed
+            if files_changed:
+                body = f"{body}\n\n{self.generate_pr_checklist(files_changed)}"
 
             # Prepare PR data
             pr_data = {
@@ -207,6 +335,12 @@ class GitOps:
                 response.raise_for_status()
                 pr_info = response.json()
 
+                # Get reviewers from CODEOWNERS if not specified
+                if not reviewers and files_changed:
+                    reviewers = []
+                    for file in files_changed:
+                        reviewers.extend(self.get_codeowners_for_path(file))
+
                 # Request reviews if specified
                 if reviewers:
                     await client.post(
@@ -220,7 +354,10 @@ class GitOps:
 
                 logger.info(
                     f"Created PR #{pr_info['number']}: {title}",
-                    extra={"pr_url": pr_info["html_url"]}
+                    extra={
+                        "pr_url": pr_info["html_url"],
+                        "reviewers": reviewers
+                    }
                 )
 
                 return PullRequest(
@@ -229,7 +366,8 @@ class GitOps:
                     title=pr_info["title"],
                     body=pr_info["body"],
                     head=pr_info["head"]["ref"],
-                    base=pr_info["base"]["ref"]
+                    base=pr_info["base"]["ref"],
+                    reviewers=reviewers or []
                 )
 
         except (httpx.HTTPError, KeyError) as e:
