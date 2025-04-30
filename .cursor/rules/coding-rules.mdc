@@ -4,15 +4,15 @@ globs:
 alwaysApply: true
 ---
 // ──────────────────────────────────────────────────────────────
-//  Quantum Llama  –  Cursor AI Project Rules v0.1  (April 30 2025)
-//  Repo: llm-ops-assistant  (a.k.a. “Quantum Llama”)
+//  Quantum Llama  –  Cursor AI Project Rules v0.1  (April 30 2025)
+//  Repo: llm-ops-assistant  (a.k.a. "Quantum Llama")
 // ──────────────────────────────────────────────────────────────
 //  Purpose
-//  Provide Cursor’s AI with the context, conventions, and guard‑rails
+//  Provide Cursor's AI with the context, conventions, and guard-rails
 //  needed to safely generate, refactor, and augment code in this repo.
 //
 //  TL;DR for the AI
-//  1. Follow the architecture map (crawler → planner → engine → verification → api/web).
+//  1. Follow the architecture map (crawler → planner → engine → verification → api/web).
 //  2. Use Black + Ruff for Python, Prettier + ESLint for TypeScript.
 //  3. Respect module boundaries (Python packages) & layer contracts.
 //  4. NEVER leak secrets; scan & redact with <SECRET_HASH> tokens.
@@ -21,12 +21,12 @@ alwaysApply: true
 // ──────────────────────────────────────────────────────────────
 //  Global Coding Standards
 // ──────────────────────────────────────────────────────────────
-//  * Python 3.11+, strict type hints, Pydantic v2 models.
-//  * Format with Black (line‑length = 88) and Ruff (select = ALL).
-//  * Conventional Commits (feat, fix, chore, refactor, ci, docs).
+//  * Python 3.11+, strict type hints, Pydantic v2 models.
+//  * Format with Black (line-length = 88) and Ruff (select = ALL).
+//  * Conventional Commits (feat, fix, chore, refactor, ci, docs).
 //  * Structured logging via `core.logging` (JSON, trace_id field).
-//  * Environment config via 12‑factor `.env` + `pydantic.Settings`.
-//  * Tests with pytest + pytest‑cov; target ≥ 90 % package coverage.
+//  * Environment config via 12-factor `.env` + `pydantic.Settings`.
+//  * Tests with pytest + pytest-cov; target ≥ 90 % package coverage.
 //
 // ──────────────────────────────────────────────────────────────
 //  Project Layout
@@ -38,17 +38,17 @@ alwaysApply: true
 //  api/               → FastAPI service exposing REST/GraphQL
 //  web/               → Next.js 14 dashboard (TypeScript + Tailwind)
 //  security/          → secret scan, redaction, token rotation
-//  cli/               → Click CLI entry‑points (`ql plan`, `ql exec`)
+//  cli/               → Click CLI entry-points (`ql plan`, `ql exec`)
 //  docs/              → ADRs, runbooks, incident playbooks
-//  tests/             → unit/, integration/, golden‑set/
+//  tests/             → unit/, integration/, golden-set/
 //
 //  When generating code, place files in the correct directory.
-//  Do NOT create ad‑hoc “utils” folders; prefer cohesive packages.
+//  Do NOT create ad-hoc "utils" folders; prefer cohesive packages.
 //
 // ──────────────────────────────────────────────────────────────
-//  Python‑Specific Rules
+//  Python-Specific Rules
 // ──────────────────────────────────────────────────────────────
-//  * Use `async def` + `anyio` for IO‑bound code; keep CPU‑bound
+//  * Use `async def` + `anyio` for IO-bound code; keep CPU-bound
 //    work in Celery tasks.
 //  * Always include `from __future__ import annotations`.
 //  * Data models: prefer `@pydantic.dataclasses.dataclass` over
@@ -59,8 +59,8 @@ alwaysApply: true
 // ──────────────────────────────────────────────────────────────
 //  TypeScript / React Rules (web/)
 // ──────────────────────────────────────────────────────────────
-//  * Next.js 14 / app‑router; use Server Components by default.
-//  * UI toolkit: shadcn/ui; icons: lucide‑react.
+//  * Next.js 14 / app-router; use Server Components by default.
+//  * UI toolkit: shadcn/ui; icons: lucide-react.
 //  * State fetch/cache with SWR (`useSWR`) or React Query 5.
 //  * Styling: TailwindCSS; prefer `@apply` over long class strings
 //    in complex components.
@@ -68,7 +68,7 @@ alwaysApply: true
 //  * Directory conventions: `web/(components|app|lib|hooks|types)`.
 //
 // ──────────────────────────────────────────────────────────────
-//  LLM‑Agent Interaction Contract
+//  LLM-Agent Interaction Contract
 // ──────────────────────────────────────────────────────────────
 //  When responding to a task prompt:
 //  1. Think silently, then RETURN ONLY code diff(s) in triple backticks.
@@ -76,7 +76,7 @@ alwaysApply: true
 //  3. Do not modify files outside the listed deliverables.
 //  4. Run `black`/`ruff --fix` (Python) or `prettier --write` (TS)
 //     before producing the diff.
-//  5. Ensure `pytest -q` passes and coverage Δ ≥ 0 unless explicitly
+//  5. Ensure `pytest -q` passes and coverage Δ ≥ 0 unless explicitly
 //     told the task is allowed to drop coverage.
 //  6. If a secret or credential string is detected, replace with
 //     `<SECRET_HASH_###>` and note `# redacted` in a comment.
@@ -84,26 +84,26 @@ alwaysApply: true
 //     or edits.
 //
 // ──────────────────────────────────────────────────────────────
-//  Commit Message Template (auto‑commit)
+//  Commit Message Template (auto-commit)
 // ──────────────────────────────────────────────────────────────
 //  <type>(<scope>): <summary>
 //
-//  * Example: `feat(engine): add redis prompt cache with 30‑day TTL`
-//  * Maximum 72‑char summary; detailed body optional.
+//  * Example: `feat(engine): add redis prompt cache with 30-day TTL`
+//  * Maximum 72-char summary; detailed body optional.
 //
 // ──────────────────────────────────────────────────────────────
 //  Documentation Rules
 // ──────────────────────────────────────────────────────────────
 //  * Update or create docstrings 💯 of the time.
-//  * Public functions/classes: Google‑style docstrings with Args,
+//  * Public functions/classes: Google-style docstrings with Args,
 //    Returns, Raises.
-//  * ADRs live in `docs/adr‑YYYYMMDD‑<slug>.md` using template.
+//  * ADRs live in `docs/adr-YYYYMMDD-<slug>.md` using template.
 //  * Update `README.md` if adding new CLI commands or env vars.
 //
 // ──────────────────────────────────────────────────────────────
 //  Prohibited Patterns (AI must refuse or change approach)
 // ──────────────────────────────────────────────────────────────
-//  * Hard‑coded credentials or tokens.
+//  * Hard-coded credentials or tokens.
 //  * Usage of `print` for logging.
 //  * Global mutable state outside `core/state.py`.
 //  * Commits without passing CI.
@@ -130,7 +130,7 @@ alwaysApply: true
 //  ```
 //
 // ──────────────────────────────────────────────────────────────
-//  EOF – Happy patching, Quantum Llama!
+//  EOF – Happy patching, Quantum Llama!
 
 when you interact with the monday.com board
 
@@ -266,6 +266,25 @@ ON_TASK_ERROR {
 //     item_id: "item_id",
 //     column_id: "text_mkqfjtdj",
 //     value: "https://github.com/org/repo/commit/hash"
+//   ) {
+//     id
+//   }
+// }
+
+// Update Dependencies:
+// Example payload for updating dependencies:
+// {
+//   "boardId": 9034734333,
+//   "itemId": "target_item_id",
+//   "columnValues": "{\"dependency_mkqgkwhf\": {\"item_ids\": [\"dependent_item_id\"]}}"
+// }
+//
+// mutation {
+//   change_column_value(
+//     board_id: 9034734333,
+//     item_id: "target_item_id",
+//     column_id: "dependency_mkqgkwhf",
+//     value: "{\"item_ids\": [\"dependent_item_id\"]}"
 //   ) {
 //     id
 //   }
