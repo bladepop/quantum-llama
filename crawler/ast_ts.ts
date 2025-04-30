@@ -27,9 +27,11 @@ interface ASTNode {
  * @param filePath Path to the TypeScript file
  * @returns A simplified AST as a JSON-serializable object
  */
-function parseTypeScriptFile(filePath: string): ASTNode | { error: string } {
+async function parseTypeScriptFile(filePath: string): Promise<ASTNode | { error: string }> {
   try {
-    if (!fs.existsSync(filePath)) {
+    try {
+      await fs.promises.access(filePath);
+    } catch {
       return { error: `File not found: ${filePath}` };
     }
 
@@ -304,119 +306,114 @@ function processNodeChildren(node: ts_morph.Node, astNode: ASTNode): void {
 }
 
 /**
- * Parse all TypeScript files in a directory
- * @param dirPath Path to the directory to parse
- * @param extensions Array of file extensions to include (default: ['.ts', '.tsx'])
- * @returns Object mapping file paths to their ASTs
+ * Directories to exclude from traversal
  */
-async function parseDirectory(dirPath: string, extensions: string[] = ['.ts', '.tsx']): Promise<Record<string, ASTNode | { error: string }>> {
-  try {
-    if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
-      return { [dirPath]: { error: `Directory not found: ${dirPath}` } };
-    }
-    
-    const results: Record<string, ASTNode | { error: string }> = {};
-    
-    // Create a project for all files
-    const project = new ts_morph.Project();
-    
-    // Find all TypeScript files recursively
-    const files = await findFilesRecursively(dirPath, extensions);
-
-    // Add all files to the project
-    for (const file of files) {
-      try {
-        project.addSourceFileAtPath(file);
-      } catch (error) {
-        results[file] = { error: `Failed to add file to project: ${error}` };
-      }
-    }
-    
-    // Parse each file
-    for (const sourceFile of project.getSourceFiles()) {
-      const filePath = sourceFile.getFilePath();
-      try {
-        results[filePath] = createNodeFromSourceFile(sourceFile);
-      } catch (error) {
-        results[filePath] = { error: `Failed to parse file: ${error}` };
-      }
-    }
-    
-    return results;
-  } catch (error) {
-    return { [dirPath]: { error: `Failed to parse directory: ${error}` } };
-  }
-}
+const EXCLUDED_DIRS = new Set([
+  'node_modules',
+  '.git',
+  'dist',
+  'build',
+  '.venv',
+  'venv',
+  'coverage',
+  '.next',
+  '.cache',
+  '__pycache__',
+]);
 
 /**
- * Find all files with specified extensions in a directory recursively
+ * Find TypeScript files recursively in a directory
+ * @param dirPath The directory to search in
+ * @param extensions Array of file extensions to look for
+ * @returns Array of file paths
  */
 async function findFilesRecursively(dirPath: string, extensions: string[]): Promise<string[]> {
   const files: string[] = [];
-  
-  async function traverse(currentPath: string) {
-    try {
-      const entries = await fs.promises.readdir(currentPath, { withFileTypes: true });
-      
-      for (const entry of entries) {
-        const entryPath = path.join(currentPath, entry.name);
-        
-        if (entry.isDirectory()) {
-          // Skip common directories that shouldn't be processed
-          if (entry.name !== 'node_modules' && entry.name !== '.git' && 
-              entry.name !== 'dist' && entry.name !== '.venv') {
-            await traverse(entryPath);
-          }
-        } else if (entry.isFile() && extensions.includes(path.extname(entry.name))) {
-          files.push(entryPath);
+
+  async function traverse(currentPath: string): Promise<void> {
+    const entries = await fs.promises.readdir(currentPath, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = path.join(currentPath, entry.name);
+
+      if (entry.isDirectory()) {
+        // Skip excluded directories
+        if (EXCLUDED_DIRS.has(entry.name)) {
+          continue;
         }
+        await traverse(fullPath);
+      } else if (entry.isFile() && extensions.some(ext => entry.name.endsWith(ext))) {
+        files.push(fullPath);
       }
-    } catch (error) {
-      console.error(`Error reading directory ${currentPath}: ${error}`);
     }
   }
-  
+
   await traverse(dirPath);
   return files;
 }
 
 /**
- * Main function to run the AST parser from the command line
+ * Parse all TypeScript files in a directory
+ * @param dirPath The directory to parse
+ * @param extensions Array of file extensions to parse
+ * @returns Object mapping file paths to their ASTs
  */
-async function main() {
-  // Check for command-line arguments
-  const args = process.argv.slice(2);
-  if (args.length === 0) {
-    console.error('Usage: node ast_ts.js <file_or_directory_path>');
-    process.exit(1);
-  } 
+async function parseDirectory(
+  dirPath: string,
+  extensions: string[] = ['.ts', '.tsx']
+): Promise<Record<string, ASTNode | { error: string }>> {
+  const results: Record<string, ASTNode | { error: string }> = {};
 
-  const targetPath = args[0];
-  let result;
-  
   try {
-    const stats = fs.statSync(targetPath);
-    
-    if (stats.isFile()) {
-      result = parseTypeScriptFile(targetPath);
-    } else if (stats.isDirectory()) {
-      // Use await since parseDirectory is now async
-      result = await parseDirectory(targetPath); 
-    } else {
-      console.error(`Error: ${targetPath} is not a file or directory`);
+    const files = await findFilesRecursively(dirPath, extensions);
+
+    // Process files in parallel with a concurrency limit
+    const CONCURRENCY_LIMIT = 5;
+    const chunks = [];
+    for (let i = 0; i < files.length; i += CONCURRENCY_LIMIT) {
+      const chunk = files.slice(i, i + CONCURRENCY_LIMIT);
+      const promises = chunk.map(async (file) => {
+        results[file] = await parseTypeScriptFile(file);
+      });
+      chunks.push(promises);
+      await Promise.all(promises);
+    }
+
+    return results;
+  } catch (error) {
+    // Return error with the directory path as the key
+    return {
+      [dirPath]: { error: `Failed to parse directory ${dirPath}: ${error instanceof Error ? error.message : String(error)}` }
+    };
+  }
+}
+
+/**
+ * Main entry point
+ */
+async function main(): Promise<void> {
+  try {
+    const args = process.argv.slice(2);
+    if (args.length === 0) {
+      console.error('Please provide a directory path');
       process.exit(1);
     }
-    
-    console.log(JSON.stringify(result, null, 2));
+
+    const dirPath = args[0];
+    const results = await parseDirectory(dirPath);
+    console.log(JSON.stringify(results, null, 2));
   } catch (error) {
-    console.error(`Error: ${error}`);
+    console.error('Error:', error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }
 
-// If running as a script (not imported as a module)
+// Run main if this is the entry point
 if (require.main === module) {
-  main().catch(err => console.error(err));
+  main().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+  });
 }
 
 // Export the functions for use as a module
